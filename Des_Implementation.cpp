@@ -6,7 +6,7 @@ using namespace std;
         bit=(x& (mask<<shift));      \
         bit=bit>>shift;\
 }while(0);
-
+map<char,int>inputKey;
 int Keys_Before_Permutations_56_bit[17];
 //we start with k[1] ignore k[0] and k[16] is the same as k[0] but we use it to make the code easier
 int Keys_After_Permutations_48_bit[17];
@@ -56,17 +56,15 @@ int convert_string_to_hex(string s) {
 
     return x;
 }
-//untested
-string convert_hexaKey_into_halfchar_string(string key)
+// we need to convert the key to 64 bit by concate 8 bits to the left and right instead of dealing with each hexa digit as a single byte
+int convert_hexaKey_into_hex(string key)
 {
-    string s = "";
-    for (int i = 0; i < key.size(); i++) {
-        int x = key[i];
-        int mask = 0xf;
-        s = s + char((x >> 4) & mask);
-        s = s + char(x & mask);
+    int x = 0;
+    for (int i = 0; i < key.size(); i++)
+    {
+        x = (x<<4) | inputKey[key[i]];
     }
-    return s;
+    return x;
 }
 //return key0
 int generate_key0(string Main_key) {
@@ -147,7 +145,8 @@ void solve() {
     //  cin >> PlainText;
     // string s = convert_hex_to_string(convert_string_to_hex(PlainText));
 //generate_key0(Key);
-// we need to convert the key to 64 bit by concate 8 bits to the left and right instead of dealing with each hexa digit as a single byte
+
+    convert_hexaKey_into_hex(Key);
     generete_key1_to_key15();
     generate_Keys_Permutation();
     //end
@@ -156,6 +155,14 @@ void solve() {
 signed main() {
 
     int t = 1;
+    for (int i = 0; i < 10; i++)
+    {
+        inputKey['0' + i] = i;
+    }
+    for (int i = 0; i < 6; i++)
+    {
+        inputKey['A' + i] = 10 + i;
+    }
     // cin >> t;
     while (t--) solve();
 
