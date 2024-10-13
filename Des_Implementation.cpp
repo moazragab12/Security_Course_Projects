@@ -197,42 +197,41 @@ void generate_Keys_Permutation() {
 }
 
 /*We want to expand each block R(n-1) from 32 bits to 48 bits*/
-bitset<48> expand(const bitset<32>& halfBlock) {
-    bitset<48> expanded;
+int expand(int input) {
+    int output = 0;
     for (int i = 0; i < 48; i++) {
-        expanded[47 - i] = halfBlock[32 - E_bit_selection_table[i]];
+        output |= ((input >> (32 - E_bit_selection_table[i])) & 1) << (47 - i);
     }
-    return expanded;
+    return output;
 }
 
 /*After we finished expanding...
 We now have 48 bits , 8 blocks (6 bits each)
 So, every block will be of 4 bits, thus we have 32 bits in total*/
-bitset<32> sBoxSubstitution(const bitset<48>& input) {
-    bitset<32> output;
+int substitute(int input) {
+    int output = 0;
     for (int i = 0; i < 8; i++) {
-        int row = (input[47 - (i * 6)] << 1) | input[47 - (i * 6 + 5)];
-        int col = (input[47 - (i * 6 + 1)] << 3) | (input[47 - (i * 6 + 2)] << 2) | (input[47 - (i * 6 + 3)] << 1) | input[47 - (i * 6 + 4)];
-        output <<= 4;
-        output |= S_box[i][row][col];
+        int row = ((input & (1 << 6 * i)) >> (6 * i)) + ((input & (1 << 6 * i + 5)) >> (6 * i + 5));
+        int col = (input & (0b011110 << 6 * i + 1)) >> (6 * i + 1);
+        output |= S_box[i][row][col] << (4 * i);
     }
     return output;
 }
 
 /*We have to do the permutation of the S-box output which leads to "Avalanche effect"*/
-bitset<32> permute(const bitset<32>& input) {
-    bitset<32> output;
+int permutation(int input) {
+    int output = 0;
     for (int i = 0; i < 32; i++) {
-        output[31 - i] = input[32 - P_table[i]];
+        output |= ((input >> (32 - P_table[i])) & 1) << (31 - i);
     }
     return output;
 }
 
 /*Apply final permutation IP^-1*/
-bitset<64> finalPermutation(const bitset<64>& input) {
-    bitset<64> output;
+int final_permutation(int input) {
+    int output = 0;
     for (int i = 0; i < 64; i++) {
-        output[63 - i] = input[64 - final_permutation_table[i]];
+        output |= ((input >> (64 - final_permutation_table[i])) & 1) << (63 - i);
     }
     return output;
 }
