@@ -321,12 +321,32 @@ string convert_hex_to_string(int x) {
     return s;
 }
 
-/**
- * @brief Main solving function that sets up the DES algorithm by generating keys and permutations.
- */
-void solve() {
-    string PlainText;
-    string Key = "4A45B36C89948598";
+
+
+signed main(signed argc, char* argv[]) {
+
+    // Check if two arguments are provided (program name + key + plaintext)
+    /**
+     * i dont know if the plaintext will have a space then we should convert the args from 2 to the end
+     */
+    if (argc < 3) {
+        cout << "Usage: " << argv[0] << " <key> <plaintext>" << endl;
+        return 1; // Exit if not enough arguments are provided
+    }
+
+    // Convert command line arguments to strings
+    string Key = argv[1];          // First argument is the key
+    string PlainText = argv[2];    // Second argument is the plaintext
+
+
+    for (int i = 0; i < 10; i++) {
+        inputKey['0' + i] = i;
+    }
+    for (int i = 0; i < 6; i++) {
+        inputKey['A' + i] = 10 + i;
+    }
+
+ //   string Key = "4A45B36C89948598";
     string CipherText;
 
 
@@ -334,21 +354,6 @@ void solve() {
     generate_key0(x);
     generete_key1_to_key15();
     generate_Keys_Permutation();
-    //end
-}
-
-signed main() {
-
-    int t = 1;
-    for (int i = 0; i < 10; i++) {
-        inputKey['0' + i] = i;
-    }
-    for (int i = 0; i < 6; i++) {
-        inputKey['A' + i] = 10 + i;
-    }
-    // cin >> t;
-    while (t--) solve();
-
     return 0;
 }
 
