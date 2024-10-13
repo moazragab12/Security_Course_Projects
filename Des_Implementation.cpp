@@ -277,13 +277,6 @@ int Encode_64_bit_Data(string s){
 
 
 
-/*uncomplete yet
-int Encode_64_bit_Data(string s) {
-    int x = convert_string_to_hex(s);
-    int ret = 0;
-
-    return ret;
-}*/
 
 /**
  * @brief Generates 16 subkeys from the initial key0 by left-shifting C and D components.
