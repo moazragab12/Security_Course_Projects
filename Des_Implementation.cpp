@@ -122,7 +122,7 @@ const int final_permutation_table[64] = {
 //note 64 bit to fit in long long
 int convert_string_to_hex(string s) {
     if (s.size() > 8) {
-        cout << "String is too long";
+        cout << "String is too long" << endl;
         return 0;
     }
     int x = 0b0;
@@ -136,6 +136,10 @@ int convert_string_to_hex(string s) {
 
     return x;
 }
+
+
+
+
 /**
  * @brief Converts a hexadecimal key string into an integer.
  *
@@ -194,6 +198,18 @@ void generate_Keys_Permutation() {
     }
     //  Keys_After_Permutations_48_bit[16]=Keys_After_Permutations_48_bit[0];
 
+}
+
+int BIN_To_DEC(string binary){
+    int decimal = 0;
+    int counter = 0;
+    for(int i = binary.size()-1; i >= 0; i--){
+        if(binary[i] == '1'){
+            decimal += pow(2, counter);
+        }
+        counter++;
+    }
+    return decimal;
 }
 
 
@@ -265,18 +281,29 @@ int Encode_64_bit_Data(string s){
     int block = initial_permutation(x);
     int L = block >> 32;
     int R = block & 0xFFFFFFFF;
+    cout << "L: " << L << " R: " << R << endl;
+
     for (int i = 1; i < 17; i++) {
         int temp = R;
         R = XOR(L, feistel(R, Keys_After_Permutations_48_bit[i]));
         L = temp;
+        cout << "Round " << i << " L: " << L << " R: " << R << endl;
     }
     //combine L and R
     int output = (R << 32) | L;
+    cout << "Final Permutation: " << output << endl;
     return final_permutation(output);
 }
 
 
 
+/*uncomplete yet
+int Encode_64_bit_Data(string s) {
+    int x = convert_string_to_hex(s);
+    int ret = 0;
+
+    return ret;
+}*/
 
 /**
  * @brief Generates 16 subkeys from the initial key0 by left-shifting C and D components.
@@ -321,39 +348,49 @@ string convert_hex_to_string(int x) {
     return s;
 }
 
+/**
+ * @brief Main solving function that sets up the DES algorithm by generating keys and permutations.
+ */
+void solve() {
+    string PlainText = "0123456789ABCDEF";
+    string Key = "4A45B36C89948598";
+    string CipherText = "85E813540F0AB405";
 
+    cout << "Plaintext: " << PlainText << endl;
+    cout << "Key: " << Key << endl;
+    cout << "Expected Ciphertext: " << CipherText << endl;
 
-signed main(signed argc, char* argv[]) {
+    int x = convert_hexaKey_into_hex(Key);
+    generate_key0(x);
+    generete_key1_to_key15();
+    generate_Keys_Permutation();
 
-    // Check if two arguments are provided (program name + key + plaintext)
-    /**
-     * i dont know if the plaintext will have a space then we should convert the args from 2 to the end
-     */
-    if (argc < 3) {
-        cout << "Usage: " << argv[0] << " <key> <plaintext>" << endl;
-        return 1; // Exit if not enough arguments are provided
+    int y = Encode_64_bit_Data(PlainText);
+    cout << "y: " << y << endl;
+    string s = convert_hex_to_string(y);
+    cout << "CipherText: " << s << endl;
+
+    if (s == "85E813540F0AB405") {
+        cout << "Test Passed" << endl;
+    } else {
+        cout << "Test Failed" << endl;
     }
 
-    // Convert command line arguments to strings
-    string Key = argv[1];          // First argument is the key
-    string PlainText = argv[2];    // Second argument is the plaintext
 
+}
 
+signed main() {
+
+    int t = 1;
     for (int i = 0; i < 10; i++) {
         inputKey['0' + i] = i;
     }
     for (int i = 0; i < 6; i++) {
         inputKey['A' + i] = 10 + i;
     }
+    // cin >> t;
+    while (t--) solve();
 
- //   string Key = "4A45B36C89948598";
-    string CipherText;
-
-
-    int x = convert_hexaKey_into_hex(Key);
-    generate_key0(x);
-    generete_key1_to_key15();
-    generate_Keys_Permutation();
     return 0;
 }
 
