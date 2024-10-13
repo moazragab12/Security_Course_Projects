@@ -196,6 +196,7 @@ void generate_Keys_Permutation() {
 
 }
 
+
 /*We want to expand each block R(n-1) from 32 bits to 48 bits*/
 int expand(int input) {
     int output = 0;
@@ -227,6 +228,28 @@ int permutation(int input) {
     return output;
 }
 
+/*XOR*/
+int XOR(int a, int b) {
+    return a ^ b;
+}
+
+/*Feistel function that expands, substitutes, permutates, and 'XOR's*/
+int feistel(int R, int key) {
+    int expanded = expand(R);
+    int substituted = substitute(XOR(expanded, key));
+    return permutation(substituted);
+}
+
+/*Apply initial permutation IP*/
+int initial_permutation(int input) {
+    int output = 0;
+    for (int i = 0; i < 64; i++) {
+        output |= ((input >> (64 - Data_Permutations_bits[i])) & 1) << (63 - i);
+    }
+    return output;
+}
+
+
 /*Apply final permutation IP^-1*/
 int final_permutation(int input) {
     int output = 0;
@@ -236,13 +259,31 @@ int final_permutation(int input) {
     return output;
 }
 
-//uncomplete yet
+/*Encode 64-bit block using Feistel rounds*/
+int Encode_64_bit_Data(string s){
+    int x = convert_string_to_hex(s);
+    int block = initial_permutation(x);
+    int L = block >> 32;
+    int R = block & 0xFFFFFFFF;
+    for (int i = 1; i < 17; i++) {
+        int temp = R;
+        R = XOR(L, feistel(R, Keys_After_Permutations_48_bit[i]));
+        L = temp;
+    }
+    //combine L and R
+    int output = (R << 32) | L;
+    return final_permutation(output);
+}
+
+
+
+/*uncomplete yet
 int Encode_64_bit_Data(string s) {
     int x = convert_string_to_hex(s);
     int ret = 0;
 
     return ret;
-}
+}*/
 
 /**
  * @brief Generates 16 subkeys from the initial key0 by left-shifting C and D components.
