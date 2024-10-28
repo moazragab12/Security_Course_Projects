@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#define get_bit(x, shift, bit, mask)  do{ \
-        bit=(x& (mask<<shift));      \
-        bit=bit>>shift;\
-}while(0);
+#include <sys/stat.h>
 unsigned long long Keys_Before_Permutations_56_bit[17];
 unsigned long long Keys_After_Permutations_48_bit[17];
 unsigned long long keys_Shift_for_Permutations[16] = { 1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1 };
@@ -178,40 +175,25 @@ char* expand(const char* input, const int* E_table, size_t table_size) {
         if (E_table[i] - 1 < strlen(input)) {
             strncat(output, input + E_table[i] - 1, 1);
         } else {
-            printf("Expansion index %d is out of range for input length %zu\n", E_table[i] - 1, strlen(input));
             strcat(output, "0");
         }
     }
-    printf("Expansion result: %s\n", output);
     return output;
 }
 void substitute(const char* input, char* output) {
     output[0] = '\0';
     for (int i = 0; i < 8; i++) {
-        // Extract 6-bit block
         char six_bit_block[7] = { input[i * 6], input[i * 6 + 1], input[i * 6 + 2], input[i * 6 + 3], input[i * 6 + 4], input[i * 6 + 5], '\0' };
-
-        // Determine row and column for S-box
         int row = (six_bit_block[0] - '0') * 2 + (six_bit_block[5] - '0');
         int col = (six_bit_block[1] - '0') * 8 + (six_bit_block[2] - '0') * 4 + (six_bit_block[3] - '0') * 2 + (six_bit_block[4] - '0');
-
-        // Retrieve S-box value
         int val = S_box[i][row][col];
-
-        // Convert S-box value to 4-bit binary string
         char val_bin[5];
         for (int j = 3; j >= 0; --j) {
             val_bin[3 - j] = ((val >> j) & 1) ? '1' : '0';
         }
         val_bin[4] = '\0';
-
-        // Append to output
         strcat(output, val_bin);
-
-        // Debug information
-        printf("S-Box input block %d: %s, Row: %d, Col: %d, S-Box value: %d, Binary: %s\n", i, six_bit_block, row, col, val, val_bin);
     }
-    printf("Substitution result: %s\n", output);
 }
 char* permute(const char* input, const int* permutation_table, size_t table_size) {
     static char output[33];
@@ -221,10 +203,8 @@ char* permute(const char* input, const int* permutation_table, size_t table_size
             strncat(output, input + permutation_table[i] - 1, 1);
         } else {
             strcat(output, "0");
-            printf("Permutation index %d is out of range for input length %zu\n", permutation_table[i] - 1, strlen(input));
         }
     }
-    //printf("Permutation result: %s\n", output);
     return output;
 }
 char* xor_str(const char* a, const char* b) {
@@ -233,7 +213,6 @@ char* xor_str(const char* a, const char* b) {
     for (size_t i = 0; i < strlen(a); ++i) {
         strcat(output, a[i] == b[i] ? "0" : "1");
     }
-    printf("XOR result: %s\n", output);
     return output;
 }
 char* shift_left(const char* input, size_t nth_shifts) {
@@ -247,36 +226,20 @@ char* shift_left(const char* input, size_t nth_shifts) {
     return output;
 }
 void generateRoundKeys(const char* keyBinary, char rkb[16][49], char rk[16][17]) {
-    printf("Original key (binary): %s\n", keyBinary);
-
-    // Apply key permutation (PC-1)
     char permuted_key[57];
     strcpy(permuted_key, permute(keyBinary, key_permutation_values, 56));
-    printf("Permuted key: %s\n", permuted_key);
-
     char left[29], right[29];
     strncpy(left, permuted_key, 28);
     left[28] = '\0';
     strncpy(right, permuted_key + 28, 28);
     right[28] = '\0';
-
-    printf("Initial left: %s\n", left);
-    printf("Initial right: %s\n", right);
-
     for (int i = 0; i < 16; ++i) {
-        // Perform the left shifts
         strcpy(left, shift_left(left, keys_Shift_for_Permutations[i]));
         strcpy(right, shift_left(right, keys_Shift_for_Permutations[i]));
-
-        // Combine the left and right halves
         char combine_str[57];
         snprintf(combine_str, sizeof(combine_str), "%s%s", left, right);
-
-        // Apply the second permutation (PC-2)
         strcpy(rkb[i], permute(combine_str, Permutation_for_CDNs, 48));
         strcpy(rk[i], binaryToHex(rkb[i]));
-
-        printf("K%d - binary: %s, hex: %s\n", i + 1, rkb[i], rk[i]);
     }
 }
 char* byteToBinary(char byte) {
@@ -319,43 +282,21 @@ char* encrypt(const char* pt, char rkb[16][49], char rk[16][17]) {
     static char cipher_text[65];
     char permuted_pt[65];
     strcpy(permuted_pt, permute(pt, permutation_table, 64));
-
-    printf("Permuted plaintext: %s\n", permuted_pt);
-
     char left[33], right[33];
     strncpy(left, permuted_pt, 32); left[32] = '\0';
     strncpy(right, permuted_pt + 32, 32); right[32] = '\0';
-
-    printf("Initial left: %s, right: %s\n", left, right);
-
     for (int i = 0; i < 16; i++) {
-        // Expansion
         char right_expanded[49];
         strcpy(right_expanded, expand(right, E_table, 48));
-        printf("Expanded right (Round %d): %s\n", i, right_expanded);
-
-        // Key Mixing
         char xor_x[49];
         strcpy(xor_x, xor_str(right_expanded, rkb[i]));
-        printf("XOR with round key (Round %d): %s\n", i, xor_x);
-
-        // Substitution (S-boxes)
         char sbox_str[33];
         substitute(xor_x, sbox_str);
-        printf("S-box output (Round %d): %s\n", i, sbox_str);
-
-        // Permutation using P-table
         char p_str[33];
         strcpy(p_str, permute(sbox_str, P_table, 32));
-        printf("P-box permutation (Round %d): %s\n", i, p_str);
-
-        // XOR with left
         char result[33];
         strcpy(result, xor_str(left, p_str));
         strcpy(left, result);
-
-        printf("Round %d - Left: %s, Right: %s\n", i, left, right);
-
         if (i != 15) {
             char temp[33];
             strcpy(temp, left);
@@ -363,54 +304,30 @@ char* encrypt(const char* pt, char rkb[16][49], char rk[16][17]) {
             strcpy(right, temp);
         }
     }
-
     char combine[65];
     snprintf(combine, sizeof(combine), "%s%s", left, right);
     strcpy(cipher_text, permute(combine, final_permutation_table, 64));
-
-    printf("Final combined: %s\n", combine);
-    printf("Cipher text: %s\n", cipher_text);
-
     return cipher_text;
 }
 char* decrypt(const char* ct, char rkb[16][49], char rk[16][17]) {
     static char plain_text[65];
     char permuted_ct[65];
     strcpy(permuted_ct, permute(ct, permutation_table, 64));
-
-    printf("Permuted ciphertext: %s\n", permuted_ct);
-
     char left[33], right[33];
     strncpy(left, permuted_ct, 32); left[32] = '\0';
     strncpy(right, permuted_ct + 32, 32); right[32] = '\0';
-
-    printf("Initial left: %s, right: %s\n", left, right);
-
     for (int i = 0; i < 16; i++) {
-        // Expansion
         char right_expanded[49];
         strcpy(right_expanded, expand(right, E_table, 48));
-        printf("Expanded right (Round %d): %s\n", i, right_expanded);
-
-        // Key Mixing
         char xor_x[49];
         strcpy(xor_x, xor_str(right_expanded, rkb[15 - i]));
-        printf("XOR with round key (Round %d): %s\n", i, xor_x);
-
-        // Substitution (S-boxes)
         char sbox_str[33];
         substitute(xor_x, sbox_str);
-        printf("S-box output (Round %d): %s\n", i, sbox_str);
-
-        // Permutation (P-table)
         char p_str[33];
         strcpy(p_str, permute(sbox_str, P_table, 32));
         char result[33];
         strcpy(result, xor_str(left, p_str));
         strcpy(left, result);
-
-        printf("Round %d - Left: %s, Right: %s\n", i, left, right);
-
         if (i != 15) {
             char temp[33];
             strcpy(temp, left);
@@ -418,130 +335,102 @@ char* decrypt(const char* ct, char rkb[16][49], char rk[16][17]) {
             strcpy(right, temp);
         }
     }
-
     char combine[65];
     snprintf(combine, sizeof(combine), "%s%s", left, right);
     strcpy(plain_text, permute(combine, final_permutation_table, 64));
-
-    printf("Final combined: %s\n", combine);
-    printf("Plain text: %s\n", plain_text);
-
     return plain_text;
 }
-char* encryptECB(const char* input, char rkb[16][49], char rk[16][17]) {
-    static char output[1025];
+unsigned char* load_file(const char *fn, int *len) {
+    struct stat info = {0};
+    if (stat(fn, &info)) return 0;  // If file is inaccessible
+
+    FILE *fsrc = fopen(fn, "rb");
+    if (!fsrc) return 0;
+
+    unsigned char *data = (unsigned char *)malloc(info.st_size);
+    if (!data) exit(1);
+
+    size_t nread = fread(data, 1, info.st_size, fsrc);
+    fclose(fsrc);
+    *len = (int)nread;
+    return data;
+}
+int save_file(const char *fn, unsigned char *data, int len) {
+    FILE *fdst = fopen(fn, "wb");
+    if (!fdst) return 0;
+    fwrite(data, 1, len, fdst);
+    fclose(fdst);
+    return 1;
+}
+unsigned char* addPadding(const unsigned char* input, int input_len, int *padded_len) {
+    int block_size = 8;
+    *padded_len = ((input_len + block_size - 1) / block_size) * block_size;  // Round up to nearest block size
+    unsigned char* padded_input = (unsigned char*)malloc(*padded_len);
+
+    if (!padded_input) return NULL;
+
+    memcpy(padded_input, input, input_len);
+    memset(padded_input + input_len, 0, *padded_len - input_len);  // Pad with zeroes
+
+    return padded_input;
+}
+unsigned char* removePadding(unsigned char* input, int input_len, int *unpadded_len) {
+    *unpadded_len = input_len;
+    while (*unpadded_len > 0 && input[*unpadded_len - 1] == 0) {
+        (*unpadded_len)--;
+    }
+    unsigned char* unpadded_output = (unsigned char*)malloc(*unpadded_len);
+    if (!unpadded_output) return NULL;
+
+    memcpy(unpadded_output, input, *unpadded_len);
+    return unpadded_output;
+}
+char* encryptECB(const unsigned char* input, int input_len, char rkb[16][49], char rk[16][17]) {
+    int padded_len;
+    unsigned char* padded_input = addPadding(input, input_len, &padded_len);
+    if (!padded_input) return NULL;
+
+    char* output = (char*)malloc(padded_len + 1); // allocate enough space for the padded input + null terminator
+    if (!output) return NULL;
     output[0] = '\0';
-    size_t block_size = 64; // 64-bit block size
-    size_t input_len = strlen(input);
 
-    printf("Input length in bits: %zu\n", input_len);
-
-    for (size_t i = 0; i + block_size <= input_len; i += block_size) {
+    for (int i = 0; i < padded_len; i += 64) {
         char block[65];
-        strncpy(block, input + i, block_size);
-        block[block_size] = '\0';
-
-        // Encrypt only full 64-bit blocks
-        printf("Encrypting block: %s\n", block);
+        strncpy(block, (char*)padded_input + i, 64);
+        block[64] = '\0';
         char* encrypted_block = encrypt(block, rkb, rk);
         strcat(output, encrypted_block);
-        printf("Encrypted block: %s\n", encrypted_block);
     }
 
-    // Handling incomplete blocks, if any
-    if (input_len % block_size != 0) {
-        size_t remaining = input_len % block_size;
-        char incomplete_block[65] = {'\0'};
-        strncpy(incomplete_block, input + (input_len - remaining), remaining);
-        printf("Skipping incomplete block: %s\n", incomplete_block);
-    }
-
+    free(padded_input);
     return output;
 }
-char* decryptECB(const char* input, char rkb[16][49], char rk[16][17]) {
-    static char output[1025];
+char* decryptECB(const unsigned char* input, int input_len, char rkb[16][49], char rk[16][17]) {
+    char* output = (char*)malloc(input_len + 1); // allocate enough space for the input + null terminator
+    if (!output) return NULL;
     output[0] = '\0';
-    size_t block_size = 64; // 64-bit block size
-    size_t input_len = strlen(input);
 
-    printf("Input length in bits: %zu\n", input_len);
-
-    for (size_t i = 0; i + block_size <= input_len; i += block_size) {
+    for (int i = 0; i < input_len; i += 64) {
         char block[65];
-        strncpy(block, input + i, block_size);
-        block[block_size] = '\0';
-
-        // Decrypt only full 64-bit blocks
-        printf("Decrypting block: %s\n", block);
+        strncpy(block, (char*)input + i, 64);
+        block[64] = '\0';
         char* decrypted_block = decrypt(block, rkb, rk);
         strcat(output, decrypted_block);
-        printf("Decrypted block: %s\n", decrypted_block);
     }
 
-    // Handling incomplete blocks, if any
-    if (input_len % block_size != 0) {
-        size_t remaining = input_len % block_size;
-        char incomplete_block[65] = {'\0'};
-        strncpy(incomplete_block, input + (input_len - remaining), remaining);
-        printf("Skipping incomplete block: %s\n", incomplete_block);
-    }
+    int unpadded_len;
+    unsigned char* unpadded_output = removePadding((unsigned char*)output, strlen(output), &unpadded_len);
+    if (!unpadded_output) return NULL;
+    strncpy(output, (char*)unpadded_output, unpadded_len);
+    output[unpadded_len] = '\0';
 
+    free(unpadded_output);
     return output;
-}
-char* readFile(const char* filename) {
-    FILE* file = fopen(filename, "rb");
-    if (!file) {
-        fprintf(stderr, "Error: Could not open file %s\n", filename);
-        return NULL;
-    }
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    rewind(file);
 
-    // Allocate enough space for the file content plus null terminator
-    char* buffer = (char*)malloc(size + 1);
-    if (!buffer) {
-        fprintf(stderr, "Error: Could not allocate memory to read file %s\n", filename);
-        fclose(file);
-        return NULL;
-    }
-    size_t readSize = fread(buffer, 1, size, file);
-    if (readSize != size) {
-        fprintf(stderr, "Error: Could not read file %s\n", filename);
-        free(buffer);
-        fclose(file);
-        return NULL;
-    }
-    buffer[size] = '\0';  // Null-terminate the string
-    fclose(file);
-
-    // Debug print to confirm file content
-    printf("File %s read successfully, content: %s\n", filename, buffer);
-
-    return buffer;
-}
-void writeFile(const char* filename, const char* data, size_t dataSize) {
-    printf("Attempting to write %zu bytes to %s\n", dataSize, filename);
-    FILE* file = fopen(filename, "wb");
-    if (!file) {
-        fprintf(stderr, "Error: Could not open file %s\n", filename);
-        return;
-    }
-
-    size_t written = fwrite(data, 1, dataSize, file);
-    if (written != dataSize) {
-        fprintf(stderr, "Error: Could not write all data to file %s\n", filename);
-    } else {
-        printf("Successfully wrote %zu bytes to %s\n", dataSize, filename);
-    }
-
-    fclose(file);
 }
 int main(int argc, char **argv) {
-    printf("Starting program...\n");
-
     if (argc != 5) {
-        fprintf(stderr, "Usage: %s <mode> <key> <input file> <output file>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <e|d> <keyfile> <inputfile> <outputfile>\n", argv[0]);
         return 1;
     }
 
@@ -550,70 +439,51 @@ int main(int argc, char **argv) {
     char *inputFile = argv[3];
     char *outputFile = argv[4];
 
-    printf("Reading key from file %s...\n", keyFile);
-    char *key = readFile(keyFile);
+    int key_len, input_len;
+    unsigned char *key = load_file(keyFile, &key_len);
     if (!key) {
-        fprintf(stderr, "Failed to read key from file.\n");
+        fprintf(stderr, "Error: Could not load key file %s\n", keyFile);
         return 1;
     }
-    printf("Key read successfully: %s\n", key);
 
-    printf("Reading input from file %s...\n", inputFile);
-    char *input = readFile(inputFile);
+    unsigned char *input = load_file(inputFile, &input_len);
     if (!input) {
-        fprintf(stderr, "Failed to read input from file.\n");
+        fprintf(stderr, "Error: Could not load input file %s\n", inputFile);
         free(key);
         return 1;
     }
-    printf("Input read successfully: %s\n", input);
 
-    printf("Generating round keys...\n");
     char rkb[16][49], rk[16][17];
-    generateRoundKeys(key, rkb, rk);
-    free(key);  // No longer needed after key schedule is generated
-    printf("Round keys generated successfully.\n");
+    generateRoundKeys((char*)key, rkb, rk);
+    free(key);
 
     char *output = NULL;
-    size_t outputSize = 0;
+    int output_len = 0;
 
-    printf("Starting %scryption...\n", mode[0] == 'e' ? "en" : "de");
     if (strcmp(mode, "e") == 0) {
-        output = encryptECB(input, rkb, rk);
-        outputSize = strlen(output);  // Size in characters, may need refining
-        printf("Encryption output size: %zu bytes\n", outputSize);
+        output = encryptECB(input, input_len, rkb, rk);
+        output_len = strlen(output);
     } else if (strcmp(mode, "d") == 0) {
-        output = decryptECB(input, rkb, rk);
-        outputSize = strlen(output);  // Size in characters, may need refining
-        printf("Decryption output size: %zu bytes\n", outputSize);
+        output = decryptECB(input, input_len, rkb, rk);
+        output_len = strlen(output);
     } else {
-        fprintf(stderr, "Invalid mode! Use 'e' for encryption or 'd' for decryption.\n");
+        fprintf(stderr, "Invalid mode. Use 'e' for encryption or 'd' for decryption.\n");
         free(input);
         return 1;
     }
 
     if (!output) {
-        fprintf(stderr, "Error during %scryption.\n", mode[0] == 'e' ? "en" : "de");
+        fprintf(stderr, "Error: Encryption/Decryption failed.\n");
         free(input);
         return 1;
     }
-    printf("%scryption completed successfully.\n", mode[0] == 'e' ? "En" : "De");
 
-    printf("Writing output to file %s...\n", outputFile);
-    writeFile(outputFile, output, outputSize);
+    if (!save_file(outputFile, (unsigned char*)output, output_len)) {
+        fprintf(stderr, "Error: Could not save to output file %s\n", outputFile);
+        free(input);
+        return 1;
+    }
+
     free(input);
-    printf("Operation completed successfully!\n");
-
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
