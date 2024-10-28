@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <sys/stat.h>
-unsigned long long Keys_Before_Permutations_56_bit[17];
-unsigned long long Keys_After_Permutations_48_bit[17];
+uint64_t Keys_Before_Permutations_56_bit[16];
+uint64_t Keys_After_Permutations_48_bit[16];
 unsigned long long keys_Shift_for_Permutations[16] = { 1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1 };
 const int key_permutation_values[56] = { 57, 49, 41, 33, 25, 17, 9,
                                         1, 58, 50, 42, 34, 26, 18,
@@ -108,63 +108,13 @@ const int final_permutation_table[64] = {
     34, 2, 42, 10, 50, 18, 58, 26,
     33, 1, 41, 9, 49, 17, 57, 25
 };
-char* hexToBinary(const char* hex) {
-    static char binary[65];
-    binary[0] = '\0';
-    for (size_t i = 0; i < strlen(hex); ++i) {
-        switch (hex[i]) {
-        case '0': strcat(binary, "0000"); break;
-        case '1': strcat(binary, "0001"); break;
-        case '2': strcat(binary, "0010"); break;
-        case '3': strcat(binary, "0011"); break;
-        case '4': strcat(binary, "0100"); break;
-        case '5': strcat(binary, "0101"); break;
-        case '6': strcat(binary, "0110"); break;
-        case '7': strcat(binary, "0111"); break;
-        case '8': strcat(binary, "1000"); break;
-        case '9': strcat(binary, "1001"); break;
-        case 'A': strcat(binary, "1010"); break;
-        case 'B': strcat(binary, "1011"); break;
-        case 'C': strcat(binary, "1100"); break;
-        case 'D': strcat(binary, "1101"); break;
-        case 'E': strcat(binary, "1110"); break;
-        case 'F': strcat(binary, "1111"); break;
-        default: return "Invalid Hex Input";
-        }
-    }
-    return binary;
-}
 char* binaryToHex(const char* binary) {
-    static char hex[17];
-    hex[0] = '\0';
-    char paddedBinary[65];
-    strcpy(paddedBinary, binary);
-    if (strlen(paddedBinary) % 4 != 0) {
-        char padding[5] = "0000";
-        strncat(padding, paddedBinary, 4 - (strlen(paddedBinary) % 4));
-        strcpy(paddedBinary, padding);
-    }
-    for (size_t i = 0; i < strlen(paddedBinary); i += 4) {
-        char fourBits[5];
-        strncpy(fourBits, paddedBinary + i, 4);
-        fourBits[4] = '\0';
-        if (strcmp(fourBits, "0000") == 0) strcat(hex, "0");
-        else if (strcmp(fourBits, "0001") == 0) strcat(hex, "1");
-        else if (strcmp(fourBits, "0010") == 0) strcat(hex, "2");
-        else if (strcmp(fourBits, "0011") == 0) strcat(hex, "3");
-        else if (strcmp(fourBits, "0100") == 0) strcat(hex, "4");
-        else if (strcmp(fourBits, "0101") == 0) strcat(hex, "5");
-        else if (strcmp(fourBits, "0110") == 0) strcat(hex, "6");
-        else if (strcmp(fourBits, "0111") == 0) strcat(hex, "7");
-        else if (strcmp(fourBits, "1000") == 0) strcat(hex, "8");
-        else if (strcmp(fourBits, "1001") == 0) strcat(hex, "9");
-        else if (strcmp(fourBits, "1010") == 0) strcat(hex, "A");
-        else if (strcmp(fourBits, "1011") == 0) strcat(hex, "B");
-        else if (strcmp(fourBits, "1100") == 0) strcat(hex, "C");
-        else if (strcmp(fourBits, "1101") == 0) strcat(hex, "D");
-        else if (strcmp(fourBits, "1110") == 0) strcat(hex, "E");
-        else if (strcmp(fourBits, "1111") == 0) strcat(hex, "F");
-        else return "Invalid Binary Input";
+    static char hex[17] = {0};
+    size_t len = strlen(binary) / 4;
+
+    for (size_t i = 0; i < len; ++i) {
+        int idx = (binary[i * 4] - '0') * 8 + (binary[i * 4 + 1] - '0') * 4 + (binary[i * 4 + 2] - '0') * 2 + (binary[i * 4 + 3] - '0');
+        hex[i] = "0123456789ABCDEF"[idx];
     }
     return hex;
 }
@@ -181,163 +131,137 @@ char* expand(const char* input, const int* E_table, size_t table_size) {
     return output;
 }
 void substitute(const char* input, char* output) {
-    output[0] = '\0';
     for (int i = 0; i < 8; i++) {
-        char six_bit_block[7] = { input[i * 6], input[i * 6 + 1], input[i * 6 + 2], input[i * 6 + 3], input[i * 6 + 4], input[i * 6 + 5], '\0' };
-        int row = (six_bit_block[0] - '0') * 2 + (six_bit_block[5] - '0');
-        int col = (six_bit_block[1] - '0') * 8 + (six_bit_block[2] - '0') * 4 + (six_bit_block[3] - '0') * 2 + (six_bit_block[4] - '0');
+        int row = (input[i * 6] - '0') * 2 + (input[i * 6 + 5] - '0');
+        int col = (input[i * 6 + 1] - '0') * 8 + (input[i * 6 + 2] - '0') * 4 + (input[i * 6 + 3] - '0') * 2 + (input[i * 6 + 4] - '0');
         int val = S_box[i][row][col];
-        char val_bin[5];
         for (int j = 3; j >= 0; --j) {
-            val_bin[3 - j] = ((val >> j) & 1) ? '1' : '0';
+            output[i * 4 + (3 - j)] = ((val >> j) & 1) ? '1' : '0';
         }
-        val_bin[4] = '\0';
-        strcat(output, val_bin);
     }
+    output[32] = '\0';
 }
 char* permute(const char* input, const int* permutation_table, size_t table_size) {
-    static char output[33];
-    output[0] = '\0';
+    static char output[65] = {0};
     for (size_t i = 0; i < table_size; ++i) {
-        if (permutation_table[i] - 1 < strlen(input)) {
-            strncat(output, input + permutation_table[i] - 1, 1);
-        } else {
-            strcat(output, "0");
-        }
+        output[i] = input[permutation_table[i] - 1];
     }
+    output[table_size] = '\0';
     return output;
 }
-char* xor_str(const char* a, const char* b) {
-    static char output[49];
-    output[0] = '\0';
+void xor_str(char* a, char* b, char* result) {
     for (size_t i = 0; i < strlen(a); ++i) {
-        strcat(output, a[i] == b[i] ? "0" : "1");
+        result[i] = (a[i] == b[i]) ? '0' : '1';
     }
-    return output;
+    result[strlen(a)] = '\0';
 }
-char* shift_left(const char* input, size_t nth_shifts) {
-    static char output[65];
-    strcpy(output, input);
-    for (size_t i = 0; i < nth_shifts; ++i) {
-        char first = output[0];
-        memmove(output, output + 1, strlen(output) - 1);
-        output[strlen(output) - 1] = first;
+void shift_left(char* input, size_t shifts) {
+    size_t len = strlen(input);
+    shifts %= len;
+
+    for (size_t i = 0; i < shifts; ++i) {
+        char first = input[0];
+        memmove(input, input + 1, len - 1);
+        input[len - 1] = first;
     }
-    return output;
 }
 void generateRoundKeys(const char* keyBinary, char rkb[16][49], char rk[16][17]) {
-    char permuted_key[57];
-    strcpy(permuted_key, permute(keyBinary, key_permutation_values, 56));
-    char left[29], right[29];
+    char permuted_key[57] = {0};
+    strncpy(permuted_key, permute(keyBinary, key_permutation_values, 56), 56);
+
+    char left[29] = {0}, right[29] = {0};
     strncpy(left, permuted_key, 28);
-    left[28] = '\0';
     strncpy(right, permuted_key + 28, 28);
-    right[28] = '\0';
+
     for (int i = 0; i < 16; ++i) {
-        strcpy(left, shift_left(left, keys_Shift_for_Permutations[i]));
-        strcpy(right, shift_left(right, keys_Shift_for_Permutations[i]));
-        char combine_str[57];
-        snprintf(combine_str, sizeof(combine_str), "%s%s", left, right);
-        strcpy(rkb[i], permute(combine_str, Permutation_for_CDNs, 48));
-        strcpy(rk[i], binaryToHex(rkb[i]));
+        shift_left(left, keys_Shift_for_Permutations[i]);
+        shift_left(right, keys_Shift_for_Permutations[i]);
+
+        char combined_key[57];
+        snprintf(combined_key, sizeof(combined_key), "%s%s", left, right);
+
+        strncpy(rkb[i], permute(combined_key, Permutation_for_CDNs, 48), 48);
+        strncpy(rk[i], binaryToHex(rkb[i]), 16);
     }
-}
-char* byteToBinary(char byte) {
-    static char binary[9];
-    binary[0] = '\0';
-    for (int i = 7; i >= 0; --i) {
-        strcat(binary, ((byte >> i) & 1) ? "1" : "0");
-    }
-    return binary;
-}
-char* stringToBinary(const char* input) {
-    static char output[1025];
-    output[0] = '\0';
-    for (size_t i = 0; i < strlen(input); ++i) {
-        char byte[9] = {'\0'};
-        for (int j = 7; j >= 0; --j) {
-            strcat(byte, ((input[i] >> j) & 1) ? "1" : "0");
-        }
-        strcat(output, byte);
-    }
-    return output;
-}
-char* binaryToString(const char* binary) {
-    static char output[65];
-    output[0] = '\0';
-    for (size_t i = 0; i < strlen(binary); i += 8) {
-        char byte[9];
-        strncpy(byte, binary + i, 8);
-        byte[8] = '\0';
-        char* endptr;
-        long int num = strtol(byte, &endptr, 2);
-        if (*endptr != '\0') {
-            return "Invalid Binary Input";
-        }
-        snprintf(output + strlen(output), sizeof(output) - strlen(output), "%c", num);
-    }
-    return output;
 }
 char* encrypt(const char* pt, char rkb[16][49], char rk[16][17]) {
     static char cipher_text[65];
     char permuted_pt[65];
-    strcpy(permuted_pt, permute(pt, permutation_table, 64));
-    char left[33], right[33];
-    strncpy(left, permuted_pt, 32); left[32] = '\0';
-    strncpy(right, permuted_pt + 32, 32); right[32] = '\0';
+    strncpy(permuted_pt, permute(pt, permutation_table, 64), 64);
+
+    char left[33] = {0}, right[33] = {0};
+    strncpy(left, permuted_pt, 32);
+    strncpy(right, permuted_pt + 32, 32);
+
     for (int i = 0; i < 16; i++) {
         char right_expanded[49];
-        strcpy(right_expanded, expand(right, E_table, 48));
+        strncpy(right_expanded, expand(right, E_table, 48), 48);
+
         char xor_x[49];
-        strcpy(xor_x, xor_str(right_expanded, rkb[i]));
+        xor_str(right_expanded, rkb[i], xor_x);
+
         char sbox_str[33];
         substitute(xor_x, sbox_str);
+
         char p_str[33];
-        strcpy(p_str, permute(sbox_str, P_table, 32));
+        strncpy(p_str, permute(sbox_str, P_table, 32), 32);
+
         char result[33];
-        strcpy(result, xor_str(left, p_str));
-        strcpy(left, result);
+        xor_str(left, p_str, result);
+        strncpy(left, result, 32);
+
         if (i != 15) {
             char temp[33];
-            strcpy(temp, left);
-            strcpy(left, right);
-            strcpy(right, temp);
+            strncpy(temp, left, 32);
+            strncpy(left, right, 32);
+            strncpy(right, temp, 32);
         }
     }
+
     char combine[65];
     snprintf(combine, sizeof(combine), "%s%s", left, right);
-    strcpy(cipher_text, permute(combine, final_permutation_table, 64));
+    strncpy(cipher_text, permute(combine, final_permutation_table, 64), 64);
+
     return cipher_text;
 }
 char* decrypt(const char* ct, char rkb[16][49], char rk[16][17]) {
     static char plain_text[65];
     char permuted_ct[65];
-    strcpy(permuted_ct, permute(ct, permutation_table, 64));
-    char left[33], right[33];
-    strncpy(left, permuted_ct, 32); left[32] = '\0';
-    strncpy(right, permuted_ct + 32, 32); right[32] = '\0';
+    strncpy(permuted_ct, permute(ct, permutation_table, 64), 64);
+
+    char left[33] = {0}, right[33] = {0};
+    strncpy(left, permuted_ct, 32);
+    strncpy(right, permuted_ct + 32, 32);
+
     for (int i = 0; i < 16; i++) {
         char right_expanded[49];
-        strcpy(right_expanded, expand(right, E_table, 48));
+        strncpy(right_expanded, expand(right, E_table, 48), 48);
+
         char xor_x[49];
-        strcpy(xor_x, xor_str(right_expanded, rkb[15 - i]));
+        xor_str(right_expanded, rkb[15 - i], xor_x);
+
         char sbox_str[33];
         substitute(xor_x, sbox_str);
+
         char p_str[33];
-        strcpy(p_str, permute(sbox_str, P_table, 32));
+        strncpy(p_str, permute(sbox_str, P_table, 32), 32);
+
         char result[33];
-        strcpy(result, xor_str(left, p_str));
-        strcpy(left, result);
+        xor_str(left, p_str, result);
+        strncpy(left, result, 32);
+
         if (i != 15) {
             char temp[33];
-            strcpy(temp, left);
-            strcpy(left, right);
-            strcpy(right, temp);
+            strncpy(temp, left, 32);
+            strncpy(left, right, 32);
+            strncpy(right, temp, 32);
         }
     }
+
     char combine[65];
     snprintf(combine, sizeof(combine), "%s%s", left, right);
-    strcpy(plain_text, permute(combine, final_permutation_table, 64));
+    strncpy(plain_text, permute(combine, final_permutation_table, 64), 64);
+
     return plain_text;
 }
 unsigned char* load_file(const char *fn, int *len) {
@@ -362,128 +286,48 @@ int save_file(const char *fn, unsigned char *data, int len) {
     fclose(fdst);
     return 1;
 }
-unsigned char* addPadding(const unsigned char* input, int input_len, int *padded_len) {
-    int block_size = 8;
-    *padded_len = ((input_len + block_size - 1) / block_size) * block_size;  // Round up to nearest block size
-    unsigned char* padded_input = (unsigned char*)malloc(*padded_len);
-
-    if (!padded_input) return NULL;
-
-    memcpy(padded_input, input, input_len);
-    memset(padded_input + input_len, 0, *padded_len - input_len);  // Pad with zeroes
-
-    return padded_input;
-}
-unsigned char* removePadding(unsigned char* input, int input_len, int *unpadded_len) {
-    *unpadded_len = input_len;
-    while (*unpadded_len > 0 && input[*unpadded_len - 1] == 0) {
-        (*unpadded_len)--;
-    }
-    unsigned char* unpadded_output = (unsigned char*)malloc(*unpadded_len);
-    if (!unpadded_output) return NULL;
-
-    memcpy(unpadded_output, input, *unpadded_len);
-    return unpadded_output;
-}
 char* encryptECB(const unsigned char* input, int input_len, char rkb[16][49], char rk[16][17]) {
-    int padded_len;
-    unsigned char* padded_input = addPadding(input, input_len, &padded_len);
-    if (!padded_input) return NULL;
-
-    char* output = (char*)malloc(padded_len + 1); // allocate enough space for the padded input + null terminator
-    if (!output) return NULL;
+    char* output = (char*)malloc((input_len / 64 + 1) * 65); // Ensure enough space
     output[0] = '\0';
 
-    for (int i = 0; i < padded_len; i += 64) {
-        char block[65];
-        strncpy(block, (char*)padded_input + i, 64);
-        block[64] = '\0';
+    for (int i = 0; i < input_len; i += 64) {
+        char block[65] = {0};
+        strncpy(block, (char*)input + i, 64);
         char* encrypted_block = encrypt(block, rkb, rk);
         strcat(output, encrypted_block);
     }
 
-    free(padded_input);
     return output;
 }
 char* decryptECB(const unsigned char* input, int input_len, char rkb[16][49], char rk[16][17]) {
-    char* output = (char*)malloc(input_len + 1); // allocate enough space for the input + null terminator
-    if (!output) return NULL;
+    char* output = (char*)malloc((input_len / 64 + 1) * 65); // Ensure enough space
     output[0] = '\0';
 
     for (int i = 0; i < input_len; i += 64) {
-        char block[65];
+        char block[65] = {0};
         strncpy(block, (char*)input + i, 64);
-        block[64] = '\0';
         char* decrypted_block = decrypt(block, rkb, rk);
         strcat(output, decrypted_block);
     }
 
-    int unpadded_len;
-    unsigned char* unpadded_output = removePadding((unsigned char*)output, strlen(output), &unpadded_len);
-    if (!unpadded_output) return NULL;
-    strncpy(output, (char*)unpadded_output, unpadded_len);
-    output[unpadded_len] = '\0';
-
-    free(unpadded_output);
     return output;
-
 }
 int main(int argc, char **argv) {
-    if (argc != 5) {
-        fprintf(stderr, "Usage: %s <e|d> <keyfile> <inputfile> <outputfile>\n", argv[0]);
-        return 1;
-    }
-
     char *mode = argv[1];
     char *keyFile = argv[2];
     char *inputFile = argv[3];
     char *outputFile = argv[4];
-
     int key_len, input_len;
     unsigned char *key = load_file(keyFile, &key_len);
-    if (!key) {
-        fprintf(stderr, "Error: Could not load key file %s\n", keyFile);
-        return 1;
-    }
-
     unsigned char *input = load_file(inputFile, &input_len);
-    if (!input) {
-        fprintf(stderr, "Error: Could not load input file %s\n", inputFile);
-        free(key);
-        return 1;
-    }
-
     char rkb[16][49], rk[16][17];
     generateRoundKeys((char*)key, rkb, rk);
     free(key);
+    char* output = (strcmp(mode, "e") == 0) ? encryptECB(input, input_len, rkb, rk) : decryptECB(input, input_len, rkb, rk);
+    int output_len = strlen(output);
 
-    char *output = NULL;
-    int output_len = 0;
-
-    if (strcmp(mode, "e") == 0) {
-        output = encryptECB(input, input_len, rkb, rk);
-        output_len = strlen(output);
-    } else if (strcmp(mode, "d") == 0) {
-        output = decryptECB(input, input_len, rkb, rk);
-        output_len = strlen(output);
-    } else {
-        fprintf(stderr, "Invalid mode. Use 'e' for encryption or 'd' for decryption.\n");
-        free(input);
-        return 1;
-    }
-
-    if (!output) {
-        fprintf(stderr, "Error: Encryption/Decryption failed.\n");
-        free(input);
-        return 1;
-    }
-
-    if (!save_file(outputFile, (unsigned char*)output, output_len)) {
-        fprintf(stderr, "Error: Could not save to output file %s\n", outputFile);
-        free(input);
-        return 1;
-    }
-
+    save_file(outputFile, (unsigned char*)output, output_len);
     free(input);
+    free(output);
     return 0;
 }
